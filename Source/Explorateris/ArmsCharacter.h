@@ -21,6 +21,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true")) // meta
 		class UCameraComponent* FakeCamera;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+		class UStaticMeshComponent* CabinToPlaceMeshComponent;
+
 	// --- sound
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Audio)
 		class USoundCue* EatSoundCue;
@@ -31,7 +34,6 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Audio)
 		class USoundCue* PlaceSoundCue;
 
-public:
 	// Sets default values for this character's properties
 	AArmsCharacter();
 
@@ -41,8 +43,6 @@ public:
 
 	void PickUp();
 
-	bool IsPickingUp;
-
 	UFUNCTION(BlueprintPure, Category = "PickingUp")
 		bool GetIsPickingUp();
 
@@ -50,26 +50,42 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-public:
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+private:
 
-	// Called to bind functionality to input
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
-
-	// ------- PickUp
+	// --------- Inter
 
 	FVector CameraLocation;
 	FVector CameraForwardVector;
 	FVector EndLocation;
 	FHitResult OutHit;
 	FCollisionQueryParams CollisionParams;
+	
+	// --------- Inter
 
-	// ------- PickUp
+	bool IsPickingUp;
 
 	TArray<int> Inventory;
 	TArray<int> NrOfElem;
+
+	int SelectedNr;
+
+	bool InventoryIsAccessed;
+
+	float Health;
+	float Hunger;
+
+	bool PlaceMode;
+
+public:
+	void Temp();
+
+	void DestroySpecificCabin(class ACabin* CabinToDestroy);
+
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
+
+	// Called to bind functionality to input
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	UFUNCTION(BlueprintPure, Category = "Inventory")
 		int GetInventory(int index);
@@ -84,8 +100,6 @@ public:
 		void SetNrOfElem(int index, int val);
 
 	// ------- Selection
-
-	int SelectedNr;
 
 	void Select1();
 
@@ -102,35 +116,43 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Selection")
 		int GetSelectedNR();
 
+	UFUNCTION(BlueprintCallable, Category = "Selection")
+		void SetSelectedNR(int NewNumber);
+
 	// -------- Place
 
 	void Place();
 
+	void PlaceInPlaceMode();
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		TSubclassOf<AActor> AppleToSpawn;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		TSubclassOf<AActor> LogToSpawn;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		TSubclassOf<AActor> StoneToSpawn;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		TSubclassOf<AActor> CabinPlaceToSpawn;
+	
+
 
 	// -------- Inventory
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
 		void AccessInventory();
 
-	bool InventoryIsAccessed;
-
 	UFUNCTION(BlueprintPure, Category = "Inventory")
 		bool GetInventoryIsAccessed();
 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
+		void SetInventoryIsAccessed(bool NewState);
+
+	UFUNCTION(BlueprintCallable, Category = "Inventory")
 		void Swap(int index1, int index2);
 
-	AActor* ActorInHand;
-
 	// --------- Health And Hunger
-
-	float Health;
-	float Hunger;
 
 	UFUNCTION(BlueprintPure, Category = "Health")
 		float GetHealth();
@@ -157,4 +179,13 @@ public:
 	void PlayEatSound();
 	void PlayHitSound();
 	void PlayPlaceSound();
+
+	// --------  PlaceCabinOrSo
+
+	UFUNCTION(BlueprintPure, Category = "Place")
+		bool GetPlaceMode();
+
+	UFUNCTION(BlueprintCallable, Category = "Place")
+		void SetPlaceMode(bool NewState);
+
 };

@@ -8,6 +8,7 @@
 #include "Apple.h"
 #include "LogWood.h"
 #include "Stone.h"
+#include "Cabin.h"
 #include "TreeRockEtc.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/World.h"
@@ -16,6 +17,7 @@
 #include "ExploraterisGameModeBase.h"
 #include "Sound/SoundCue.h"
 #include "Components/AudioComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Door.h"
 #include "../../MyLibrary/Source/MyLibrary.h"
 //#include "MyLibrary.h"
@@ -43,6 +45,10 @@ AArmsCharacter::AArmsCharacter()
 	FakeCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
 	FakeCamera->bUsePawnControlRotation = false;
 
+	CabinToPlaceMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CabinToPlaceMeshComponent"));
+	CabinToPlaceMeshComponent->SetupAttachment(RootComponent);
+	CabinToPlaceMeshComponent->SetVisibility(false);
+
 	EatAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("EatAudioComponent"));
 	EatAudioComponent->SetupAttachment(RootComponent);
 
@@ -62,6 +68,7 @@ AArmsCharacter::AArmsCharacter()
 	SetHealth(100);
 	SetHunger(100);
 
+	PlaceMode = false;
 }
 
 // Called when the game starts or when spawned
@@ -80,6 +87,54 @@ void AArmsCharacter::BeginPlay()
 	if (PlaceSoundCue) {
 		PlaceAudioComponent->SetSound(PlaceSoundCue);
 	}
+
+	//FTimerHandle handle;
+	//GetWorldTimerManager().SetTimer(handle, this, &AArmsCharacter::Temp, 0.01f, true);
+	
+}
+
+void AArmsCharacter::DestroySpecificCabin(ACabin* CabinToDestroy) {
+	CabinToDestroy->Destroy();
+}
+
+void AArmsCharacter::Temp() {
+
+	if (PlaceMode == true) {
+		FVector SpawnLocation = FVector(0, 0, 0);
+		FRotator SpawnRotation = FRotator(0, 0, 0);
+		FActorSpawnParameters SpawnInfo;
+
+		if (FakeCamera) {
+			CameraLocation = FakeCamera->GetComponentLocation();
+			CameraForwardVector = FakeCamera->GetForwardVector();
+
+			CameraForwardVector = CameraForwardVector * 500.0f;
+			EndLocation = CameraLocation + CameraForwardVector;
+
+			DrawDebugLine(GetWorld(), CameraLocation, EndLocation, FColor::Green, false, 1, 0, 1);
+
+			if (GetWorld()->LineTraceSingleByChannel(OutHit, CameraLocation, EndLocation, ECC_Visibility, CollisionParams)) {
+				if (OutHit.GetActor()) {
+
+					SpawnLocation = OutHit.ImpactPoint;
+
+					SpawnLocation.Z = 500;
+					FRotator rotate = FRotator(0, 0, 0);
+					FActorSpawnParameters SpawnInfo2;
+
+					ACabin* CabinProp = Cast<ACabin>(GetWorld()->SpawnActor<APawn>(CabinPlaceToSpawn, SpawnLocation, rotate, SpawnInfo));
+					GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("-"));
+
+					if (CabinProp) {
+						GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("+"));
+						CabinProp->AdjustPosition();
+
+						CabinProp->StartDestroy();
+					}
+				}
+			}
+		}
+	}
 }
 
 // Called every frame
@@ -91,6 +146,8 @@ void AArmsCharacter::Tick(float DeltaTime)
 
 	if (GetHunger() == 0)
 		SetHealth(GetHealth() - 0.03f);
+
+	
 }
 
 // Called to bind functionality to input
@@ -172,23 +229,24 @@ void AArmsCharacter::PickUp()
 				ALogWood* LogWoodHit = Cast<ALogWood>(OutHit.GetActor());
 				AStone* StoneHit = Cast<AStone>(OutHit.GetActor());
 				ADoor* DoorHit = Cast<ADoor>(OutHit.GetActor());
+				ACabin* CabinHit = Cast<ACabin>(OutHit.GetActor());
 
 				if (AppleHit) {
 
 					int i, ok = 0;
 					for (i = 0; i < 5; ++i) {
 						//GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Green, FString::Printf(TEXT("%d %d %d \n"), i, Inventory[i], NrOfElem[i]));
-						if (Inventory[i] == 1 && NrOfElem[i] < 6) {
-							NrOfElem[i]++;
+						if (GetInventory(i) == 1 && GetNrOfElem(i) < 6) {
+							SetNrOfElem(i, GetNrOfElem(i) + 1);
 							ok = 1;
 							break;
 						}
 					}
 
 					if (!ok) {
-						for (i = 0; i < 5 && Inventory[i] != 0; ++i) {}
-						Inventory[i] = 1;
-						NrOfElem[i]++;
+						for (i = 0; i < 5 && GetInventory(i) != 0; ++i) {}
+						SetInventory(i, 1);
+						SetNrOfElem(i, GetNrOfElem(i) + 1);
 					}
 
 					AppleHit->Destroy();
@@ -204,17 +262,17 @@ void AArmsCharacter::PickUp()
 
 							int i, ok = 0;
 							for (i = 0; i < 5; ++i) {
-								if (Inventory[i] == 2 && NrOfElem[i] < 6) {
-									NrOfElem[i]++;
+								if (GetInventory(i) == 2 && GetNrOfElem(i) < 6) {
+									SetNrOfElem(i, GetNrOfElem(i) + 1);
 									ok = 1;
 									break;
 								}
 							}
 
 							if (!ok) {
-								for (i = 0; i < 5 && Inventory[i] != 0; ++i) {}
-								Inventory[i] = 2;
-								NrOfElem[i]++;
+								for (i = 0; i < 5 && GetInventory(i) != 0; ++i) {}
+								SetInventory(i, 2);
+								SetNrOfElem(i, GetNrOfElem(i) + 1);
 							}
 
 							TreeRockHit->Destroy();
@@ -230,17 +288,17 @@ void AArmsCharacter::PickUp()
 
 							int i, ok = 0;
 							for (i = 0; i < 5; ++i) {
-								if (Inventory[i] == 3 && NrOfElem[i] < 6) {
-									NrOfElem[i]++;
+								if (GetInventory(i) == 3 && GetNrOfElem(i) < 6) {
+									SetNrOfElem(i, GetNrOfElem(i) + 1);
 									ok = 1;
 									break;
 								}
 							}
 
 							if (!ok) {
-								for (i = 0; i < 5 && Inventory[i] != 0; ++i) {}
-								Inventory[i] = 3;
-								NrOfElem[i]++;
+								for (i = 0; i < 5 && GetInventory(i) != 0; ++i) {}
+								SetInventory(i, 3);
+								SetNrOfElem(i, GetNrOfElem(i) + 1);
 							}
 
 							TreeRockHit->Destroy();
@@ -252,17 +310,17 @@ void AArmsCharacter::PickUp()
 				if (LogWoodHit) {
 					int i, ok = 0;
 					for (i = 0; i < 5; ++i) {
-						if (Inventory[i] == 2 && NrOfElem[i] < 6) {
-							NrOfElem[i]++;
+						if (GetInventory(i) == 2 && GetNrOfElem(i) < 6) {
+							SetNrOfElem(i, GetNrOfElem(i) + 1);
 							ok = 1;
 							break;
 						}
 					}
 
 					if (!ok) {
-						for (i = 0; i < 5 && Inventory[i] != 0; ++i) {}
-						Inventory[i] = 2;
-						NrOfElem[i]++;
+						for (i = 0; i < 5 && GetInventory(i) != 0; ++i) {}
+						SetInventory(i, 2);
+						SetNrOfElem(i, GetNrOfElem(i) + 1);
 					}
 
 					LogWoodHit->Destroy();
@@ -271,17 +329,17 @@ void AArmsCharacter::PickUp()
 				if (StoneHit) {
 					int i, ok = 0;
 					for (i = 0; i < 5; ++i) {
-						if (Inventory[i] == 3 && NrOfElem[i] < 6) {
-							NrOfElem[i]++;
+						if (GetInventory(i) == 3 && GetNrOfElem(i) < 6) {
+							SetNrOfElem(i, GetNrOfElem(i) + 1);
 							ok = 1;
 							break;
 						}
 					}
 
 					if (!ok) {
-						for (i = 0; i < 5 && Inventory[i] != 0; ++i) {}
-						Inventory[i] = 3;
-						NrOfElem[i]++;
+						for (i = 0; i < 5 && GetInventory(i) != 0; ++i) {}
+						SetInventory(i, 3);
+						SetNrOfElem(i, GetNrOfElem(i) + 1);
 					}
 
 					StoneHit->Destroy();
@@ -292,6 +350,11 @@ void AArmsCharacter::PickUp()
 					GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("Door"));
 
 					DoorHit->ToggleDoor();
+				}
+
+				if (CabinHit) {
+					CabinHit->SetHealth(CabinHit->GetHealth() - 10);
+					PlayHitSound();
 				}
 			}
 		}
@@ -324,28 +387,27 @@ void AArmsCharacter::SetNrOfElem(int index, int val)
 
 void AArmsCharacter::Select1()
 {
-	SelectedNr = 1;
-
+	SetSelectedNR(1);
 }
 
 void AArmsCharacter::Select2()
 {
-	SelectedNr = 2;
+	SetSelectedNR(2);
 }
 
 void AArmsCharacter::Select3()
 {
-	SelectedNr = 3;
+	SetSelectedNR(3);
 }
 
 void AArmsCharacter::Select4()
 {
-	SelectedNr = 4;
+	SetSelectedNR(4);
 }
 
 void AArmsCharacter::Select5()
 {
-	SelectedNr = 5;
+	SetSelectedNR(5);
 }
 
 void AArmsCharacter::SelectHoldObject()
@@ -358,52 +420,99 @@ int AArmsCharacter::GetSelectedNR()
 	return SelectedNr;
 }
 
+void AArmsCharacter::SetSelectedNR(int NewNumber)
+{
+	SelectedNr = NewNumber;
+}
+
 void AArmsCharacter::Place()
 {
 
-	if (Inventory[SelectedNr - 1] != 0 && NrOfElem[SelectedNr - 1] > 0) {
+	FVector SpawnLocation = FVector(0, 0, 0);
+	FRotator SpawnRotation = FRotator(0, 0, 0);
+	FActorSpawnParameters SpawnInfo;
 
-		FVector SpawnLocation = FVector(0, 0, 0);
-		FRotator SpawnRotation = FRotator(0, 0, 0);
-		FActorSpawnParameters SpawnInfo;
+	if (GetPlaceMode())
+		PlaceInPlaceMode();
 
-		if (FakeCamera) {
-			CameraLocation = FakeCamera->GetComponentLocation();
-			CameraForwardVector = FakeCamera->GetForwardVector();
+	else if (FakeCamera) {
+		CameraLocation = FakeCamera->GetComponentLocation();
+		CameraForwardVector = FakeCamera->GetForwardVector();
 
-			CameraForwardVector = CameraForwardVector * 500.0f;
-			EndLocation = CameraLocation + CameraForwardVector;
+		CameraForwardVector = CameraForwardVector * 500.0f;
+		EndLocation = CameraLocation + CameraForwardVector;
 
-			DrawDebugLine(GetWorld(), CameraLocation, EndLocation, FColor::Green, false, 1, 0, 1);
+		DrawDebugLine(GetWorld(), CameraLocation, EndLocation, FColor::Green, false, 1, 0, 1);
 
-			if (GetWorld()->LineTraceSingleByChannel(OutHit, CameraLocation, EndLocation, ECC_Visibility, CollisionParams)) {
-				if (OutHit.GetActor()) {
+		if (GetWorld()->LineTraceSingleByChannel(OutHit, CameraLocation, EndLocation, ECC_Visibility, CollisionParams)) {
+			if (OutHit.GetActor()) {
+				SpawnLocation = OutHit.ImpactPoint;
 
-					SpawnLocation = OutHit.ImpactPoint;
+				if (GetInventory(SelectedNr - 1) != 0 && GetNrOfElem(SelectedNr - 1) > 0) {
 
-					if (AppleToSpawn && Inventory[SelectedNr - 1] == 1) {
+					if (AppleToSpawn && GetInventory(SelectedNr - 1) == 1) {
 						SpawnLocation.Z += 20;
 						GetWorld()->SpawnActor<APawn>(AppleToSpawn, SpawnLocation, SpawnRotation, SpawnInfo);
 					}
 
-					if (LogToSpawn && Inventory[SelectedNr - 1] == 2) {
+					if (LogToSpawn && GetInventory(SelectedNr - 1) == 2) {
 						SpawnLocation.Z += 10;
-						GetWorld()->SpawnActor<APawn>(LogToSpawn, SpawnLocation, SpawnRotation, SpawnInfo);
+
+						ACabin* CabinInConstruction = Cast<ACabin>(OutHit.GetActor());
+
+						if (CabinInConstruction && CabinInConstruction->GetNrOfLogs() < 5) {
+							CabinInConstruction->SetNrOfLogs(CabinInConstruction->GetNrOfLogs() + 1);
+						}
+						else {
+							GetWorld()->SpawnActor<APawn>(LogToSpawn, SpawnLocation, SpawnRotation, SpawnInfo);
+						}
 					}
 
-					if (StoneToSpawn && Inventory[SelectedNr - 1] == 3) {
+					if (StoneToSpawn && GetInventory(SelectedNr - 1) == 3) {
 						SpawnLocation.Z += 10;
 						GetWorld()->SpawnActor<APawn>(StoneToSpawn, SpawnLocation, SpawnRotation, SpawnInfo);
 					}
 
-					NrOfElem[SelectedNr - 1]--;
+					SetNrOfElem(SelectedNr - 1, GetNrOfElem(SelectedNr - 1) - 1);
 					PlayPlaceSound();
 				}
 			}
 		}
+
 		for (int i = 0; i < 5; ++i) {
-			if (NrOfElem[i] == 0)
+			if (GetNrOfElem(i) == 0)
 				Inventory[i] = 0;
+		}
+	}
+}
+
+void AArmsCharacter::PlaceInPlaceMode() {
+
+	FVector SpawnLocation = FVector(0, 0, 0);
+	FRotator SpawnRotation = FRotator(0, 0, 0);
+	FActorSpawnParameters SpawnInfo;
+
+	if (FakeCamera) {
+		CameraLocation = FakeCamera->GetComponentLocation();
+		CameraForwardVector = FakeCamera->GetForwardVector();
+
+		CameraForwardVector = CameraForwardVector * 1500.0f;
+		EndLocation = CameraLocation + CameraForwardVector;
+
+		DrawDebugLine(GetWorld(), CameraLocation, EndLocation, FColor::Green, false, 1, 0, 1);
+
+		if (GetWorld()->LineTraceSingleByChannel(OutHit, CameraLocation, EndLocation, ECC_Visibility, CollisionParams)) {
+			if (OutHit.GetActor()) {
+				SpawnLocation = OutHit.ImpactPoint;
+
+				ACabin* CabinProp = Cast<ACabin>(GetWorld()->SpawnActor<APawn>(CabinPlaceToSpawn, SpawnLocation, SpawnRotation, SpawnInfo));
+				SetPlaceMode(false);
+				CabinToPlaceMeshComponent->SetVisibility(false);
+
+				if (CabinProp) {
+					CabinProp->AdjustPosition();
+				}
+			}
 		}
 	}
 }
@@ -428,6 +537,11 @@ void AArmsCharacter::AccessInventory()
 bool AArmsCharacter::GetInventoryIsAccessed()
 {
 	return InventoryIsAccessed;
+}
+
+void AArmsCharacter::SetInventoryIsAccessed(bool NewState)
+{
+	InventoryIsAccessed = NewState;
 }
 
 void AArmsCharacter::Swap(int index1, int index2)
@@ -468,11 +582,16 @@ void AArmsCharacter::SetHunger(float HungerP)
 
 void AArmsCharacter::Use()
 {
-	if (Inventory[SelectedNr - 1] == 1 && NrOfElem[SelectedNr - 1] > 0) {
-		NrOfElem[SelectedNr - 1]--;
+	if (GetInventory(SelectedNr - 1) == 1 && GetNrOfElem(SelectedNr - 1) > 0) {
+		SetNrOfElem(SelectedNr - 1, GetNrOfElem(SelectedNr - 1) - 1);
 		SetHunger(GetHunger() + 20);
 
 		PlayEatSound();
+	}
+
+	for (int i = 0; i < 5; ++i) {
+		if (GetNrOfElem(i) == 0)
+			Inventory[i] = 0;
 	}
 }
 
@@ -486,6 +605,16 @@ void AArmsCharacter::PlayPlaceSound()
 {
 	if (PlaceAudioComponent && PlaceSoundCue)
 		PlaceAudioComponent->Play(0.0f);
+}
+
+bool AArmsCharacter::GetPlaceMode()
+{
+	return PlaceMode;
+}
+
+void AArmsCharacter::SetPlaceMode(bool NewState)
+{
+	PlaceMode = NewState;
 }
 
 void AArmsCharacter::PlayEatSound()
