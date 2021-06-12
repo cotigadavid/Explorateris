@@ -49,6 +49,10 @@ AArmsCharacter::AArmsCharacter()
 	CabinToPlaceMeshComponent->SetupAttachment(RootComponent);
 	CabinToPlaceMeshComponent->SetVisibility(false);
 
+	DoorToPlaceMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DoorToPlaceMeshComponent"));
+	DoorToPlaceMeshComponent->SetupAttachment(RootComponent);
+	DoorToPlaceMeshComponent->SetVisibility(false);
+
 	EatAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("EatAudioComponent"));
 	EatAudioComponent->SetupAttachment(RootComponent);
 
@@ -459,9 +463,13 @@ void AArmsCharacter::Place()
 						SpawnLocation.Z += 10;
 
 						ACabin* CabinInConstruction = Cast<ACabin>(OutHit.GetActor());
+						ADoor* DoorInConstruction = Cast<ADoor>(OutHit.GetActor());
 
 						if (CabinInConstruction && CabinInConstruction->GetNrOfLogs() < 5) {
 							CabinInConstruction->SetNrOfLogs(CabinInConstruction->GetNrOfLogs() + 1);
+						}
+						else if (DoorInConstruction && DoorInConstruction->GetNrOfLogs() < 1) {
+							DoorInConstruction->SetNrOfLogs(DoorInConstruction->GetNrOfLogs() + 1);
 						}
 						else {
 							GetWorld()->SpawnActor<APawn>(LogToSpawn, SpawnLocation, SpawnRotation, SpawnInfo);
@@ -505,12 +513,26 @@ void AArmsCharacter::PlaceInPlaceMode() {
 			if (OutHit.GetActor()) {
 				SpawnLocation = OutHit.ImpactPoint;
 
-				ACabin* CabinProp = Cast<ACabin>(GetWorld()->SpawnActor<APawn>(CabinPlaceToSpawn, SpawnLocation, SpawnRotation, SpawnInfo));
-				SetPlaceMode(false);
-				CabinToPlaceMeshComponent->SetVisibility(false);
+				if (ItemToPlace == 0) {
+					ACabin* CabinProp = Cast<ACabin>(GetWorld()->SpawnActor<APawn>(CabinPlaceToSpawn, SpawnLocation, SpawnRotation, SpawnInfo));
+					SetPlaceMode(false);
+					CabinToPlaceMeshComponent->SetVisibility(false);
 
-				if (CabinProp) {
-					CabinProp->AdjustPosition();
+					if (CabinProp) {
+						CabinProp->AdjustPosition();
+					}
+				}
+
+				if (ItemToPlace == 1) {
+					SpawnRotation.Yaw = GetActorRotation().Yaw + 90;
+
+					ADoor* DoorProp = Cast<ADoor>(GetWorld()->SpawnActor<APawn>(DoorPlaceToSpawn, SpawnLocation, SpawnRotation, SpawnInfo));
+					SetPlaceMode(false);
+					DoorToPlaceMeshComponent->SetVisibility(false);
+
+					if (DoorProp) {
+						DoorProp->AdjustPosition();
+					}
 				}
 			}
 		}
@@ -615,6 +637,16 @@ bool AArmsCharacter::GetPlaceMode()
 void AArmsCharacter::SetPlaceMode(bool NewState)
 {
 	PlaceMode = NewState;
+}
+
+int AArmsCharacter::GetItemToPlace()
+{
+	return ItemToPlace;
+}
+
+void AArmsCharacter::SetItemToPlace(int NewCode)
+{
+	ItemToPlace = NewCode;
 }
 
 void AArmsCharacter::PlayEatSound()

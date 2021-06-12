@@ -24,6 +24,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 		class UStaticMeshComponent* CabinToPlaceMeshComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+		class UStaticMeshComponent* DoorToPlaceMeshComponent;
+
 	// --- sound
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Audio)
 		class USoundCue* EatSoundCue;
@@ -75,6 +78,8 @@ private:
 	float Hunger;
 
 	bool PlaceMode;
+
+	int ItemToPlace;
 
 public:
 	void Temp();
@@ -137,6 +142,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		TSubclassOf<AActor> CabinPlaceToSpawn;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		TSubclassOf<AActor> DoorPlaceToSpawn;
 
 
 	// -------- Inventory
@@ -188,4 +195,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Place")
 		void SetPlaceMode(bool NewState);
 
+	UFUNCTION(BlueprintPure, Category = "Place")
+		int GetItemToPlace();
+
+	UFUNCTION(BlueprintCallable, Category = "Place")
+		void SetItemToPlace(int NewCode);
 };

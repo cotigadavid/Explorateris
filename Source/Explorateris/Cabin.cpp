@@ -29,11 +29,6 @@ void ACabin::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	/*LogCountText->SetText(FString(TEXT("%d/5"), NrOfLogs));
-
-	if (NrOfLogs >= 5)
-		LogCountText->SetVisibility(false);
-	*/
 	if (Health <= 0)
 		Destroy();
 }

@@ -4,59 +4,30 @@
 
 #include "CoreMinimal.h"
 #include "Prop.h"
-#include "Components/TimelineComponent.h"
-#include "Door.generated.h"
+#include "ConstructableItem.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class EXPLORATERIS_API ADoor : public AProp
+class EXPLORATERIS_API AConstructableItem : public AProp
 {
 	GENERATED_BODY()
-	
+
+public:
+	AConstructableItem();
+
 private:
+
 	virtual void BeginPlay() override;
 
 	virtual void Tick(float DeltaTime) override;
-
+	
 	int Health;
 
 	int NrOfLogs;
 
-	bool ReadyState;
-
 public:
-	ADoor();
-
-	UPROPERTY(EditAnywhere)
-		UCurveFloat* DoorCurve;
-
-	UFUNCTION()
-		void ControlDoor();
-
-	UFUNCTION()
-		void ToggleDoor();
-
-	UFUNCTION()
-		void SetState();
-
-	bool Opened;
-
-	UFUNCTION(BlueprintPure, Category = "State")
-		bool GetReadyState();
-
-	UFUNCTION(BlueprintCallable, Category = "State")
-		void SetReadyState(bool NewValue);
-
-	float RotateValue;
-
-	float CurveFloatValue;
-
-	float TimelineValue;
-
-	FTimeline DoorTimeline;
-
 	void AdjustPosition();
 
 	UFUNCTION(BlueprintPure, Category = "Build")
