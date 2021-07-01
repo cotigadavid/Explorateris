@@ -19,6 +19,10 @@
 #include "Components/AudioComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Door.h"
+#include "ToolBase.h"
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 #include "../../MyLibrary/Source/MyLibrary.h"
 //#include "MyLibrary.h"
 
@@ -53,6 +57,10 @@ AArmsCharacter::AArmsCharacter()
 	DoorToPlaceMeshComponent->SetupAttachment(RootComponent);
 	DoorToPlaceMeshComponent->SetVisibility(false);
 
+	ToolComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ToolComponent"));
+	ToolComponent->SetupAttachment(RootComponent);
+	ToolComponent->SetVisibility(false);
+
 	EatAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("EatAudioComponent"));
 	EatAudioComponent->SetupAttachment(RootComponent);
 
@@ -61,6 +69,9 @@ AArmsCharacter::AArmsCharacter()
 
 	PlaceAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("PlaceAudioComponent"));
 	PlaceAudioComponent->SetupAttachment(RootComponent);
+
+	EatNiagaraComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("UNiagaraComponent"));
+	EatNiagaraComponent->SetupAttachment(RootComponent);
 
 	Inventory.Init(0, 10);
 	NrOfElem.Init(0, 10);
@@ -73,12 +84,16 @@ AArmsCharacter::AArmsCharacter()
 	SetHunger(100);
 
 	PlaceMode = false;
+
+	CanPickUp = true;
 }
 
 // Called when the game starts or when spawned
 void AArmsCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	EatNiagaraComponent->SetPaused(true);
 
 	IsPickingUp = false;
 
@@ -115,7 +130,7 @@ void AArmsCharacter::Temp() {
 			CameraForwardVector = CameraForwardVector * 500.0f;
 			EndLocation = CameraLocation + CameraForwardVector;
 
-			DrawDebugLine(GetWorld(), CameraLocation, EndLocation, FColor::Green, false, 1, 0, 1);
+			//DrawDebugLine(GetWorld(), CameraLocation, EndLocation, FColor::Green, false, 1, 0, 1);
 
 			if (GetWorld()->LineTraceSingleByChannel(OutHit, CameraLocation, EndLocation, ECC_Visibility, CollisionParams)) {
 				if (OutHit.GetActor()) {
@@ -151,7 +166,8 @@ void AArmsCharacter::Tick(float DeltaTime)
 	if (GetHunger() == 0)
 		SetHealth(GetHealth() - 0.03f);
 
-	
+	if (GetHunger() == 100)
+		SetHealth(GetHealth() + 0.03f);
 }
 
 // Called to bind functionality to input
@@ -208,160 +224,198 @@ bool AArmsCharacter::GetIsPickingUp()
 
 void AArmsCharacter::PickUp()
 {
-	IsPickingUp = true;
+	if (CanPickUp) {
+		CanPickUp = false;
 
-	FTimerHandle handle1;
-	GetWorldTimerManager().SetTimer(handle1, [this]() {
-		IsPickingUp = false;
-		}, 1.43f, false);
+		IsPickingUp = true;
 
-	if (FakeCamera) {
-		CameraLocation = FakeCamera->GetComponentLocation();
-		CameraForwardVector = FakeCamera->GetForwardVector();
+		FTimerHandle handle1;
+		GetWorldTimerManager().SetTimer(handle1, [this]() {
+			IsPickingUp = false;
+			}, 0.65f, false);
 
-		CameraForwardVector = CameraForwardVector * 500.0f;
-		EndLocation = CameraLocation + CameraForwardVector;
+		if (FakeCamera) {
+			CameraLocation = FakeCamera->GetComponentLocation();
+			CameraForwardVector = FakeCamera->GetForwardVector();
 
+			CameraForwardVector = CameraForwardVector * 500.0f;
+			EndLocation = CameraLocation + CameraForwardVector;
 
-		DrawDebugLine(GetWorld(), CameraLocation, EndLocation, FColor::Green, false, 1, 0, 1);
+			//DrawDebugLine(GetWorld(), CameraLocation, EndLocation, FColor::Green, false, 1, 0, 1);
 
-		if (GetWorld()->LineTraceSingleByChannel(OutHit, CameraLocation, EndLocation, ECC_Visibility, CollisionParams)) {
-			if (OutHit.GetActor()) {
+			if (GetWorld()->LineTraceSingleByChannel(OutHit, CameraLocation, EndLocation, ECC_Visibility, CollisionParams)) {
+				if (OutHit.GetActor()) {
 
-				AApple* AppleHit = Cast<AApple>(OutHit.GetActor());
-				ATreeRockEtc* TreeRockHit = Cast<ATreeRockEtc>(OutHit.GetActor());
-				ALogWood* LogWoodHit = Cast<ALogWood>(OutHit.GetActor());
-				AStone* StoneHit = Cast<AStone>(OutHit.GetActor());
-				ADoor* DoorHit = Cast<ADoor>(OutHit.GetActor());
-				ACabin* CabinHit = Cast<ACabin>(OutHit.GetActor());
+					AApple* AppleHit = Cast<AApple>(OutHit.GetActor());
+					ATreeRockEtc* TreeRockHit = Cast<ATreeRockEtc>(OutHit.GetActor());
+					ALogWood* LogWoodHit = Cast<ALogWood>(OutHit.GetActor());
+					AStone* StoneHit = Cast<AStone>(OutHit.GetActor());
+					ADoor* DoorHit = Cast<ADoor>(OutHit.GetActor());
+					ACabin* CabinHit = Cast<ACabin>(OutHit.GetActor());
+					AToolBase* ToolHit = Cast<AToolBase>(OutHit.GetActor());
 
-				if (AppleHit) {
+					if (AppleHit) {
 
-					int i, ok = 0;
-					for (i = 0; i < 5; ++i) {
-						//GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Green, FString::Printf(TEXT("%d %d %d \n"), i, Inventory[i], NrOfElem[i]));
-						if (GetInventory(i) == 1 && GetNrOfElem(i) < 6) {
-							SetNrOfElem(i, GetNrOfElem(i) + 1);
-							ok = 1;
-							break;
-						}
-					}
-
-					if (!ok) {
-						for (i = 0; i < 5 && GetInventory(i) != 0; ++i) {}
-						SetInventory(i, 1);
-						SetNrOfElem(i, GetNrOfElem(i) + 1);
-					}
-
-					AppleHit->Destroy();
-				}
-
-				if (TreeRockHit) {
-					int type = TreeRockHit->GetType();
-
-					if (type < 5) {
-						TreeRockHit->SetHealthPoints(TreeRockHit->GetHealthPoints() - 15);
-
-						if (TreeRockHit->GetHealthPoints() <= 0) {
-
-							int i, ok = 0;
-							for (i = 0; i < 5; ++i) {
-								if (GetInventory(i) == 2 && GetNrOfElem(i) < 6) {
-									SetNrOfElem(i, GetNrOfElem(i) + 1);
-									ok = 1;
-									break;
-								}
-							}
-
-							if (!ok) {
-								for (i = 0; i < 5 && GetInventory(i) != 0; ++i) {}
-								SetInventory(i, 2);
+						int i, ok = 0;
+						for (i = 0; i < 5; ++i) {
+							if (GetInventory(i) == 1 && GetNrOfElem(i) < 6) {
 								SetNrOfElem(i, GetNrOfElem(i) + 1);
+								ok = 1;
+								break;
 							}
-
-							TreeRockHit->Destroy();
 						}
 
-						PlayHitSound();
+						if (!ok) {
+							for (i = 0; i < 5 && GetInventory(i) != 0; ++i) {}
+							SetInventory(i, 1);
+							SetNrOfElem(i, GetNrOfElem(i) + 1);
+						}
 
+						AppleHit->Destroy();
 					}
-					else {
-						TreeRockHit->SetHealthPoints(TreeRockHit->GetHealthPoints() - 10);
 
-						if (TreeRockHit->GetHealthPoints() <= 0) {
+					if (TreeRockHit) {
+						int type = TreeRockHit->GetType();
 
-							int i, ok = 0;
-							for (i = 0; i < 5; ++i) {
-								if (GetInventory(i) == 3 && GetNrOfElem(i) < 6) {
-									SetNrOfElem(i, GetNrOfElem(i) + 1);
-									ok = 1;
-									break;
+						if (type < 5) {
+
+							if (GetInventory(SelectedNr - 1) == 4)
+								TreeRockHit->SetHealthPoints(TreeRockHit->GetHealthPoints() - 30);
+							else
+								TreeRockHit->SetHealthPoints(TreeRockHit->GetHealthPoints() - 15);
+
+							if (TreeRockHit->GetHealthPoints() <= 0) {
+
+								int i, ok = 0;
+								for (i = 0; i < 5; ++i) {
+									if (GetInventory(i) == 2 && GetNrOfElem(i) < 6) {
+										SetNrOfElem(i, GetNrOfElem(i) + 1);
+										ok = 1;
+										break;
+									}
 								}
+
+								if (!ok) {
+									for (i = 0; i < 5 && GetInventory(i) != 0; ++i) {}
+									SetInventory(i, 2);
+									SetNrOfElem(i, GetNrOfElem(i) + 1);
+								}
+
+								TreeRockHit->Destroy();
 							}
 
-							if (!ok) {
-								for (i = 0; i < 5 && GetInventory(i) != 0; ++i) {}
-								SetInventory(i, 3);
-								SetNrOfElem(i, GetNrOfElem(i) + 1);
-							}
+							FRotator PartcleRotation = GetActorRotation();
+							PartcleRotation.Yaw += 80;
 
-							TreeRockHit->Destroy();
+							UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, HitWoodNiagaraSystem, OutHit.ImpactPoint, PartcleRotation, FVector(1), false, true, ENCPoolMethod::AutoRelease, true);
+
+							PlayHitSound();
+
 						}
+						else {
+							TreeRockHit->SetHealthPoints(TreeRockHit->GetHealthPoints() - 10);
+
+							if (TreeRockHit->GetHealthPoints() <= 0) {
+
+								int i, ok = 0;
+								for (i = 0; i < 5; ++i) {
+									if (GetInventory(i) == 3 && GetNrOfElem(i) < 6) {
+										SetNrOfElem(i, GetNrOfElem(i) + 1);
+										ok = 1;
+										break;
+									}
+								}
+
+								if (!ok) {
+									for (i = 0; i < 5 && GetInventory(i) != 0; ++i) {}
+									SetInventory(i, 3);
+									SetNrOfElem(i, GetNrOfElem(i) + 1);
+								}
+
+								TreeRockHit->Destroy();
+							}
+
+							UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, HitStoneNiagaraSysyem, OutHit.ImpactPoint, GetActorRotation(), FVector(1), false, true, ENCPoolMethod::AutoRelease, true);
+
+							PlayHitSound();
+						}
+					}
+
+					if (LogWoodHit) {
+						int i, ok = 0;
+						for (i = 0; i < 5; ++i) {
+							if (GetInventory(i) == 2 && GetNrOfElem(i) < 6) {
+								SetNrOfElem(i, GetNrOfElem(i) + 1);
+								ok = 1;
+								break;
+							}
+						}
+
+						if (!ok) {
+							for (i = 0; i < 5 && GetInventory(i) != 0; ++i) {}
+							SetInventory(i, 2);
+							SetNrOfElem(i, GetNrOfElem(i) + 1);
+						}
+
+						LogWoodHit->Destroy();
+					}
+
+					if (StoneHit) {
+						int i, ok = 0;
+						for (i = 0; i < 5; ++i) {
+							if (GetInventory(i) == 3 && GetNrOfElem(i) < 6) {
+								SetNrOfElem(i, GetNrOfElem(i) + 1);
+								ok = 1;
+								break;
+							}
+						}
+
+						if (!ok) {
+							for (i = 0; i < 5 && GetInventory(i) != 0; ++i) {}
+							SetInventory(i, 3);
+							SetNrOfElem(i, GetNrOfElem(i) + 1);
+						}
+
+						StoneHit->Destroy();
+					}
+
+					if (DoorHit) {
+						DoorHit->SetHealth(DoorHit->GetHealth() - 20);
 						PlayHitSound();
 					}
-				}
 
-				if (LogWoodHit) {
-					int i, ok = 0;
-					for (i = 0; i < 5; ++i) {
-						if (GetInventory(i) == 2 && GetNrOfElem(i) < 6) {
-							SetNrOfElem(i, GetNrOfElem(i) + 1);
-							ok = 1;
-							break;
+					if (CabinHit) {
+						CabinHit->SetHealth(CabinHit->GetHealth() - 10);
+						PlayHitSound();
+					}
+
+					if (ToolHit) {
+						GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("-"));
+
+						int i, ok = 0;
+						for (i = 0; i < 5; ++i) {
+							if (GetInventory(i) == 4 && GetNrOfElem(i) < 6) {
+								SetNrOfElem(i, GetNrOfElem(i) + 1);
+								ok = 1;
+								break;
+							}
 						}
-					}
 
-					if (!ok) {
-						for (i = 0; i < 5 && GetInventory(i) != 0; ++i) {}
-						SetInventory(i, 2);
-						SetNrOfElem(i, GetNrOfElem(i) + 1);
-					}
-
-					LogWoodHit->Destroy();
-				}
-
-				if (StoneHit) {
-					int i, ok = 0;
-					for (i = 0; i < 5; ++i) {
-						if (GetInventory(i) == 3 && GetNrOfElem(i) < 6) {
+						if (!ok) {
+							for (i = 0; i < 5 && GetInventory(i) != 0; ++i) {}
+							SetInventory(i, 4);
 							SetNrOfElem(i, GetNrOfElem(i) + 1);
-							ok = 1;
-							break;
 						}
+
+						//GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Cyan, FString::Printf(TEXT("%d"), ToolHit->Destroy()), false);
+						ToolHit->Delete();
 					}
-
-					if (!ok) {
-						for (i = 0; i < 5 && GetInventory(i) != 0; ++i) {}
-						SetInventory(i, 3);
-						SetNrOfElem(i, GetNrOfElem(i) + 1);
-					}
-
-					StoneHit->Destroy();
-				}
-
-				if (DoorHit) {
-
-					GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("Door"));
-
-					DoorHit->ToggleDoor();
-				}
-
-				if (CabinHit) {
-					CabinHit->SetHealth(CabinHit->GetHealth() - 10);
-					PlayHitSound();
 				}
 			}
 		}
+
+		FTimerHandle handle;
+		GetWorldTimerManager().SetTimer(handle, [this]() {CanPickUp = true; }, 1.0f, false);
 	}
 }
 
@@ -429,6 +483,16 @@ void AArmsCharacter::SetSelectedNR(int NewNumber)
 	SelectedNr = NewNumber;
 }
 
+bool AArmsCharacter::GetCanPickUp()
+{
+	return CanPickUp;
+}
+
+void AArmsCharacter::SetCanPickUp(bool NewValue)
+{
+	CanPickUp = NewValue;
+}
+
 void AArmsCharacter::Place()
 {
 
@@ -446,7 +510,7 @@ void AArmsCharacter::Place()
 		CameraForwardVector = CameraForwardVector * 500.0f;
 		EndLocation = CameraLocation + CameraForwardVector;
 
-		DrawDebugLine(GetWorld(), CameraLocation, EndLocation, FColor::Green, false, 1, 0, 1);
+		//DrawDebugLine(GetWorld(), CameraLocation, EndLocation, FColor::Green, false, 1, 0, 1);
 
 		if (GetWorld()->LineTraceSingleByChannel(OutHit, CameraLocation, EndLocation, ECC_Visibility, CollisionParams)) {
 			if (OutHit.GetActor()) {
@@ -472,13 +536,18 @@ void AArmsCharacter::Place()
 							DoorInConstruction->SetNrOfLogs(DoorInConstruction->GetNrOfLogs() + 1);
 						}
 						else {
-							GetWorld()->SpawnActor<APawn>(LogToSpawn, SpawnLocation, SpawnRotation, SpawnInfo);
+							GetWorld()->SpawnActor<APawn>(LogToSpawn, SpawnLocation, GetActorRotation(), SpawnInfo);
 						}
 					}
 
 					if (StoneToSpawn && GetInventory(SelectedNr - 1) == 3) {
 						SpawnLocation.Z += 10;
 						GetWorld()->SpawnActor<APawn>(StoneToSpawn, SpawnLocation, SpawnRotation, SpawnInfo);
+					}
+
+					if (AxeToSpawn && GetInventory(SelectedNr - 1) == 4) {
+						//SpawnLocation.Z += 10;
+						GetWorld()->SpawnActor<APawn>(AxeToSpawn, SpawnLocation, SpawnRotation, SpawnInfo);
 					}
 
 					SetNrOfElem(SelectedNr - 1, GetNrOfElem(SelectedNr - 1) - 1);
@@ -507,13 +576,15 @@ void AArmsCharacter::PlaceInPlaceMode() {
 		CameraForwardVector = CameraForwardVector * 1500.0f;
 		EndLocation = CameraLocation + CameraForwardVector;
 
-		DrawDebugLine(GetWorld(), CameraLocation, EndLocation, FColor::Green, false, 1, 0, 1);
+		//DrawDebugLine(GetWorld(), CameraLocation, EndLocation, FColor::Green, false, 1, 0, 1);
 
 		if (GetWorld()->LineTraceSingleByChannel(OutHit, CameraLocation, EndLocation, ECC_Visibility, CollisionParams)) {
 			if (OutHit.GetActor()) {
 				SpawnLocation = OutHit.ImpactPoint;
 
 				if (ItemToPlace == 0) {
+					SpawnRotation.Yaw = GetActorRotation().Yaw;
+
 					ACabin* CabinProp = Cast<ACabin>(GetWorld()->SpawnActor<APawn>(CabinPlaceToSpawn, SpawnLocation, SpawnRotation, SpawnInfo));
 					SetPlaceMode(false);
 					CabinToPlaceMeshComponent->SetVisibility(false);
@@ -609,6 +680,28 @@ void AArmsCharacter::Use()
 		SetHunger(GetHunger() + 20);
 
 		PlayEatSound();
+
+		EatNiagaraComponent->ResetSystem();
+	}
+
+	if (FakeCamera) {
+		CameraLocation = FakeCamera->GetComponentLocation();
+		CameraForwardVector = FakeCamera->GetForwardVector();
+
+		CameraForwardVector = CameraForwardVector * 500.0f;
+		EndLocation = CameraLocation + CameraForwardVector;
+
+		if (GetWorld()->LineTraceSingleByChannel(OutHit, CameraLocation, EndLocation, ECC_Visibility, CollisionParams)) {
+			if (OutHit.GetActor()) {
+
+				ADoor* DoorHit = Cast<ADoor>(OutHit.GetActor());
+
+				if (DoorHit) {
+
+					DoorHit->ToggleDoor();
+				}
+			}
+		}
 	}
 
 	for (int i = 0; i < 5; ++i) {

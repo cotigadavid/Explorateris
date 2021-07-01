@@ -27,6 +27,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 		class UStaticMeshComponent* DoorToPlaceMeshComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+		class UStaticMeshComponent* ToolComponent;
+
 	// --- sound
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Audio)
 		class USoundCue* EatSoundCue;
@@ -36,6 +39,11 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Audio)
 		class USoundCue* PlaceSoundCue;
+
+	// ------ Niagara
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+		class UNiagaraComponent* EatNiagaraComponent;
 
 	// Sets default values for this character's properties
 	AArmsCharacter();
@@ -66,6 +74,8 @@ private:
 	// --------- Inter
 
 	bool IsPickingUp;
+
+	bool CanPickUp;
 
 	TArray<int> Inventory;
 	TArray<int> NrOfElem;
@@ -124,6 +134,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Selection")
 		void SetSelectedNR(int NewNumber);
 
+	// -------- PickUp
+
+	UFUNCTION(BlueprintPure, Category = "PickUp")
+		bool GetCanPickUp();
+
+	UFUNCTION(BlueprintCallable, Category = "PickUp")
+		void SetCanPickUp(bool NewValue);
+
+
 	// -------- Place
 
 	void Place();
@@ -144,6 +163,9 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		TSubclassOf<AActor> DoorPlaceToSpawn;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		TSubclassOf<AActor> AxeToSpawn;
 
 
 	// -------- Inventory
@@ -200,4 +222,15 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Place")
 		void SetItemToPlace(int NewCode);
+
+
+	// --------------------- NIAGARA
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		class UNiagaraSystem* HitWoodNiagaraSystem;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		class UNiagaraSystem* HitStoneNiagaraSysyem;
+
+	// --------------------- NIAGARA
 };

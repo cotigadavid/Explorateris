@@ -12,8 +12,8 @@ ADoor::ADoor()
 	Opened = false;
 	ReadyState = false;
 
-	NrOfLogs = 0;
-	Health = 100;
+	SetNrOfLogs(0);
+	SetHealth(100);
 }
 
 void ADoor::Tick(float DeltaTime)
@@ -90,45 +90,4 @@ bool ADoor::GetReadyState()
 void ADoor::SetReadyState(bool NewValue)
 {
 	ReadyState = NewValue;
-}
-
-void ADoor::AdjustPosition()
-{
-	FVector StartLocation = GetActorLocation();
-	FVector UpVector = { 0, 0, -1 };
-
-	FVector EndLocation = StartLocation + (UpVector * 1000.0f);
-	FHitResult OutHit;
-	FCollisionQueryParams CollisionParams;
-
-	if (GetWorld()->LineTraceSingleByChannel(OutHit, StartLocation, EndLocation, ECC_Visibility, CollisionParams)) {
-		if (OutHit.GetActor()) {
-
-			ADoor* HitActor = Cast<ADoor>(OutHit.GetActor());
-
-			if (!HitActor) {
-				SetActorLocation(OutHit.ImpactPoint);
-			}
-		}
-	}
-}
-
-int ADoor::GetNrOfLogs()
-{
-	return NrOfLogs;
-}
-
-void ADoor::SetNrOfLogs(int NewValue)
-{
-	NrOfLogs = NewValue;
-}
-
-int ADoor::GetHealth()
-{
-	return Health;
-}
-
-void ADoor::SetHealth(int NewValue)
-{
-	Health = NewValue;
 }

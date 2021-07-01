@@ -17,12 +17,13 @@ class EXPLORATERIS_API AConstructableItem : public AProp
 public:
 	AConstructableItem();
 
-private:
+protected:
 
 	virtual void BeginPlay() override;
 
 	virtual void Tick(float DeltaTime) override;
 	
+private:
 	int Health;
 
 	int NrOfLogs;
