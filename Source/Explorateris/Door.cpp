@@ -2,92 +2,127 @@
 
 
 #include "Door.h"
-#include "Kismet/KismetMathLibrary.h"
+#include "Components/BoxComponent.h"
+#include "DrawDebugHelpers.h"
 #include "Kismet/GameplayStatics.h"
 
 ADoor::ADoor()
 {
-    PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = true;
 
-	Opened = false;
-	ReadyState = false;
+	BoxComp = CreateDefaultSubobject<UBoxComponent>(TEXT("MyBoxComponent"));
+	BoxComp->InitBoxExtent(FVector(150, 100, 100));
+	BoxComp->SetCollisionProfileName("Trigger");
+
+	FHitResult SetLocationResult;
+	//BoxComp->SetRelativeLocation(FVector(100, 0, 210), false, &SetLocationResult, ETeleportType::None);
+	BoxComp->SetWorldLocation(FVector(100, 0, 210));
+	//RootComponent = BoxComp;
+
+	StaticMeshComponent->SetRelativeLocation(FVector(0.0f, 50.0f, -100.0f));
+	StaticMeshComponent->SetWorldScale3D(FVector(1.f));
+
+	isClosed = true;
+
+	Opening = false;
+	Closing = false;
+
+	DotP = 0.0f;
+	MaxDegree = 0.0f;
+	AddRotation = 0.0f;
+	PosNeg = 0.0f;
+	DoorCurrentRotation = 0.0f;
 
 	SetNrOfLogs(0);
 	SetHealth(100);
-}
-
-void ADoor::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-	DoorTimeline.TickTimeline(DeltaTime);
-
-	if (GetHealth() <= 0)
-		Destroy();
 }
 
 void ADoor::BeginPlay()
 {
 	Super::BeginPlay();
 
-	RotateValue = 1.0f;
+	//DrawDebugBox(GetWorld(), GetActorLocation(), BoxComp->GetScaledBoxExtent(), FQuat(GetActorRotation()), FColor::Turquoise, true, -1, 0, 2);
+}
 
-	if (DoorCurve) {
+void ADoor::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
 
-		FOnTimelineFloat TimelineCallback;
-		FOnTimelineEventStatic TimelineFinishedCallback;
+	if (Opening)
+	{
+		OpenDoor(DeltaTime);
+	}
 
-		TimelineCallback.BindUFunction(this, FName("ControlDoor"));
-		TimelineFinishedCallback.BindUFunction(this, FName("SetState"));
-
-		DoorTimeline.AddInterpFloat(DoorCurve, TimelineCallback);
-		DoorTimeline.SetTimelineFinishedFunc(TimelineFinishedCallback);
-
+	if (Closing)
+	{
+		CloseDoor(DeltaTime);
 	}
 }
 
-void ADoor::ControlDoor()
+void ADoor::OpenDoor(float dt)
 {
-	TimelineValue = DoorTimeline.GetPlaybackPosition();
-	CurveFloatValue = RotateValue * DoorCurve->GetFloatValue(TimelineValue);
+	DoorCurrentRotation = StaticMeshComponent->GetRelativeRotation().Yaw;
 
-	FQuat NewRotation = FQuat(FRotator(0.f, CurveFloatValue, 0.f));
+	AddRotation = PosNeg * dt * 80;
 
-	StaticMeshComponent->SetRelativeRotation(NewRotation);
+	if (FMath::IsNearlyEqual(DoorCurrentRotation, MaxDegree, 1.5f))
+	{
+		Closing = false;
+		Opening = false;
+	}
+	else if (Opening)
+	{
+		FRotator NewRotation = FRotator(0.0f, AddRotation, 0.0f);
+		StaticMeshComponent->AddRelativeRotation(FQuat(NewRotation), false, 0, ETeleportType::None);
+	}
 }
 
-void ADoor::ToggleDoor()
+void ADoor::CloseDoor(float dt)
 {
-    if (ReadyState)
-    {
-        Opened = !Opened;
+	DoorCurrentRotation = StaticMeshComponent->GetRelativeRotation().Yaw;
 
-        if (Opened)
-        {
-            RotateValue = 1.0f;
+	if (DoorCurrentRotation > 0)
+	{
+		AddRotation = -dt * 80;
+	}
+	else
+	{
+		AddRotation = dt * 80;
+	}
 
-            ReadyState = false;
-            DoorTimeline.PlayFromStart();
-        }
-        else
-        {
-            ReadyState = false;
-            DoorTimeline.Reverse();
-        }
-    }
+	if (FMath::IsNearlyEqual(DoorCurrentRotation, 0.0f, 1.5f))
+	{
+		Closing = false;
+		Opening = false;
+	}
+	else if (Closing)
+	{
+		FRotator NewRotation = FRotator(0.0f, AddRotation, 0.0f);
+		StaticMeshComponent->AddRelativeRotation(FQuat(NewRotation), false, 0, ETeleportType::None);
+	}
 }
 
-void ADoor::SetState()
+void ADoor::ToggleDoor(FVector ForwardVector)
 {
-	ReadyState = true;
+	DotP = FVector::DotProduct(BoxComp->GetForwardVector(), ForwardVector);
+
+	// get 1 or -1 from the the dot product
+	PosNeg = FMath::Sign(DotP);
+
+	// degree to clamp at
+	MaxDegree = PosNeg * 80.0f;
+
+	// toggle bools
+	if (isClosed) {
+		isClosed = false;
+		Closing = false;
+		Opening = true;
+
+	}
+	else {
+		Opening = false;
+		isClosed = true;
+		Closing = true;
+	}
 }
 
-bool ADoor::GetReadyState()
-{
-	return ReadyState;
-}
-
-void ADoor::SetReadyState(bool NewValue)
-{
-	ReadyState = NewValue;
-}

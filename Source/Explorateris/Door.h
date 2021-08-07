@@ -21,37 +21,30 @@ private:
 
 	virtual void Tick(float DeltaTime) override;
 
-	bool ReadyState;
-
 public:
 	ADoor();
 
-	UPROPERTY(EditAnywhere)
-		UCurveFloat* DoorCurve;
+	UFUNCTION()
+		void OpenDoor(float dt);
 
 	UFUNCTION()
-		void ControlDoor();
+		void CloseDoor(float dt);
+
+	// declare sphere comp
+	UPROPERTY(VisibleAnywhere, Category = "BoxComp")
+		class UBoxComponent* BoxComp;
 
 	UFUNCTION()
-		void ToggleDoor();
+		void ToggleDoor(FVector ForwardVector);
 
-	UFUNCTION()
-		void SetState();
+	bool Opening;
+	bool Closing;
+	bool isClosed;
 
-	bool Opened;
-
-	UFUNCTION(BlueprintPure, Category = "State")
-		bool GetReadyState();
-
-	UFUNCTION(BlueprintCallable, Category = "State")
-		void SetReadyState(bool NewValue);
-
-	float RotateValue;
-
-	float CurveFloatValue;
-
-	float TimelineValue;
-
-	FTimeline DoorTimeline;
+	float DotP;
+	float MaxDegree;
+	float AddRotation;
+	float PosNeg;
+	float DoorCurrentRotation;
 
 };

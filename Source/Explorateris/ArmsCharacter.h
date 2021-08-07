@@ -40,10 +40,22 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Audio)
 		class USoundCue* PlaceSoundCue;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Audio)
+		class USoundCue* CowSoundCue;
+
 	// ------ Niagara
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 		class UNiagaraComponent* EatNiagaraComponent;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		class UNiagaraSystem* HitWoodNiagaraSystem;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		class UNiagaraSystem* HitStoneNiagaraSystem;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		class UNiagaraSystem* HitCowNiagaraSystem;
 
 	// Sets default values for this character's properties
 	AArmsCharacter();
@@ -90,6 +102,12 @@ private:
 	bool PlaceMode;
 
 	int ItemToPlace;
+
+	// ---------- AI
+
+	class UAIPerceptionStimuliSourceComponent* stimulus;
+
+	void SetupStimulus();
 
 public:
 	void Temp();
@@ -204,6 +222,7 @@ public:
 	class UAudioComponent* EatAudioComponent;
 	class UAudioComponent* HitAudioComponent;
 	class UAudioComponent* PlaceAudioComponent;
+	class UAudioComponent* CowAudioComponent;
 
 	void PlayEatSound();
 	void PlayHitSound();
@@ -224,13 +243,4 @@ public:
 		void SetItemToPlace(int NewCode);
 
 
-	// --------------------- NIAGARA
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-		class UNiagaraSystem* HitWoodNiagaraSystem;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-		class UNiagaraSystem* HitStoneNiagaraSysyem;
-
-	// --------------------- NIAGARA
 };

@@ -19,11 +19,14 @@
 #include "Components/AudioComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Door.h"
+#include "Cow.h"
 #include "ToolBase.h"
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraSystem.h"
 #include "../../MyLibrary/Source/MyLibrary.h"
+#include "Perception/AIPerceptionStimuliSourceComponent.h"
+#include "Perception/AISense_Sight.h"
 //#include "MyLibrary.h"
 
 // Sets default values
@@ -70,6 +73,9 @@ AArmsCharacter::AArmsCharacter()
 	PlaceAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("PlaceAudioComponent"));
 	PlaceAudioComponent->SetupAttachment(RootComponent);
 
+	CowAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("CowAudioComponent"));
+	CowAudioComponent->SetupAttachment(RootComponent);
+
 	EatNiagaraComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("UNiagaraComponent"));
 	EatNiagaraComponent->SetupAttachment(RootComponent);
 
@@ -86,6 +92,8 @@ AArmsCharacter::AArmsCharacter()
 	PlaceMode = false;
 
 	CanPickUp = true;
+
+	SetupStimulus();
 }
 
 // Called when the game starts or when spawned
@@ -106,6 +114,9 @@ void AArmsCharacter::BeginPlay()
 	if (PlaceSoundCue) {
 		PlaceAudioComponent->SetSound(PlaceSoundCue);
 	}
+	if (CowSoundCue) {
+		CowAudioComponent->SetSound(CowSoundCue);
+	}
 
 	//FTimerHandle handle;
 	//GetWorldTimerManager().SetTimer(handle, this, &AArmsCharacter::Temp, 0.01f, true);
@@ -114,6 +125,13 @@ void AArmsCharacter::BeginPlay()
 
 void AArmsCharacter::DestroySpecificCabin(ACabin* CabinToDestroy) {
 	CabinToDestroy->Destroy();
+}
+
+void AArmsCharacter::SetupStimulus()
+{
+	stimulus = CreateDefaultSubobject<UAIPerceptionStimuliSourceComponent>(TEXT("Stimulus"));
+	stimulus->RegisterForSense(TSubclassOf<UAISense_Sight>());
+	stimulus->RegisterWithPerceptionSystem();
 }
 
 void AArmsCharacter::Temp() {
@@ -253,6 +271,7 @@ void AArmsCharacter::PickUp()
 					ADoor* DoorHit = Cast<ADoor>(OutHit.GetActor());
 					ACabin* CabinHit = Cast<ACabin>(OutHit.GetActor());
 					AToolBase* ToolHit = Cast<AToolBase>(OutHit.GetActor());
+					ACow* CowHit = Cast<ACow>(OutHit.GetActor());
 
 					if (AppleHit) {
 
@@ -335,7 +354,7 @@ void AArmsCharacter::PickUp()
 								TreeRockHit->Destroy();
 							}
 
-							UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, HitStoneNiagaraSysyem, OutHit.ImpactPoint, GetActorRotation(), FVector(1), false, true, ENCPoolMethod::AutoRelease, true);
+							UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, HitStoneNiagaraSystem, OutHit.ImpactPoint, GetActorRotation(), FVector(1), false, true, ENCPoolMethod::AutoRelease, true);
 
 							PlayHitSound();
 						}
@@ -409,6 +428,20 @@ void AArmsCharacter::PickUp()
 
 						//GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Cyan, FString::Printf(TEXT("%d"), ToolHit->Destroy()), false);
 						ToolHit->Delete();
+					}
+
+
+					if (CowHit) {
+						CowHit->SetHealth(CowHit->GetHealth() - 20);
+
+						if (CowHit->GetHealth() < 0)
+							CowHit->Destroy();
+						else {
+							if (CowAudioComponent && CowSoundCue)
+								CowAudioComponent->Play(0.0f);
+						}
+
+						UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, HitCowNiagaraSystem, OutHit.ImpactPoint, FRotator(0), FVector(1), false, true, ENCPoolMethod::AutoRelease, true);
 					}
 				}
 			}
@@ -698,7 +731,7 @@ void AArmsCharacter::Use()
 
 				if (DoorHit) {
 
-					DoorHit->ToggleDoor();
+					DoorHit->ToggleDoor(CameraForwardVector);
 				}
 			}
 		}
